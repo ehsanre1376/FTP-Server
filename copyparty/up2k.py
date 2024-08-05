@@ -28,8 +28,8 @@ from .fsutil import Fstab
 from .mtag import MParser, MTag
 from .util import (
     HAVE_SQLITE3,
-    VF_CAREFUL,
     SYMTIME,
+    VF_CAREFUL,
     Daemon,
     MTHash,
     Pebkac,
@@ -545,7 +545,7 @@ class Up2k(object):
                     nrm += 1
 
             if nrm:
-                self.log("{} files graduated in {}".format(nrm, vp))
+                self.log("%d files graduated in /%s" % (nrm, vp))
 
             if timeout < 10:
                 continue
@@ -3013,9 +3013,9 @@ class Up2k(object):
             times = (int(time.time()), int(lmod))
             bos.utime(dst, times, False)
 
-    def handle_chunk(
-        self, ptop: str, wark: str, chash: str
-    ) -> tuple[int, list[int], str, float, bool]:
+    def handle_chunks(
+        self, ptop: str, wark: str, chashes: list[str]
+    ) -> tuple[int, list[list[int]], str, float, bool]:
         with self.mutex, self.reg_mutex:
             self.db_act = self.vol_act[ptop] = time.time()
             job = self.registry[ptop].get(wark)
@@ -3024,49 +3024,66 @@ class Up2k(object):
                 self.log("unknown wark [{}], known: {}".format(wark, known))
                 raise Pebkac(400, "unknown wark" + SSEELOG)
 
-            if chash not in job["need"]:
-                msg = "chash = {} , need:\n".format(chash)
-                msg += "\n".join(job["need"])
-                self.log(msg)
-                raise Pebkac(400, "already got that but thanks??")
+            for chash in chashes:
+                if chash not in job["need"]:
+                    msg = "chash = {} , need:\n".format(chash)
+                    msg += "\n".join(job["need"])
+                    self.log(msg)
+                    raise Pebkac(400, "already got that (%s) but thanks??" % (chash,))
 
-            nchunk = [n for n, v in enumerate(job["hash"]) if v == chash]
-            if not nchunk:
-                raise Pebkac(400, "unknown chunk")
+                if chash in job["busy"]:
+                    nh = len(job["hash"])
+                    idx = job["hash"].index(chash)
+                    t = "that chunk is already being written to:\n  {}\n  {} {}/{}\n  {}"
+                    raise Pebkac(400, t.format(wark, chash, idx, nh, job["name"]))
 
-            if chash in job["busy"]:
-                nh = len(job["hash"])
-                idx = job["hash"].index(chash)
-                t = "that chunk is already being written to:\n  {}\n  {} {}/{}\n  {}"
-                raise Pebkac(400, t.format(wark, chash, idx, nh, job["name"]))
+            assert chash  # type: ignore
+            chunksize = up2k_chunksize(job["size"])
+
+            coffsets = []
+            nchunks = []
+            for chash in chashes:
+                nchunk = [n for n, v in enumerate(job["hash"]) if v == chash]
+                if not nchunk:
+                    raise Pebkac(400, "unknown chunk %s" % (chash))
+
+                ofs = [chunksize * x for x in nchunk]
+                coffsets.append(ofs)
+                nchunks.append(nchunk)
+
+            for ofs1, ofs2 in zip(coffsets, coffsets[1:]):
+                gap = (ofs2[0] - ofs1[0]) - chunksize
+                if gap:
+                    t = "only sibling chunks can be stitched; gap of %d bytes between offsets %d and %d in %s"
+                    raise Pebkac(400, t % (gap, ofs1[0], ofs2[0], job["name"]))
 
             path = djoin(job["ptop"], job["prel"], job["tnam"])
 
-            chunksize = up2k_chunksize(job["size"])
-            ofs = [chunksize * x for x in nchunk]
-
             if not job["sprs"]:
                 cur_sz = bos.path.getsize(path)
-                if ofs[0] > cur_sz:
+                if coffsets[0][0] > cur_sz:
                     t = "please upload sequentially using one thread;\nserver filesystem does not support sparse files.\n  file: {}\n  chunk: {}\n  cofs: {}\n  flen: {}"
-                    t = t.format(job["name"], nchunk[0], ofs[0], cur_sz)
+                    t = t.format(job["name"], nchunks[0][0], coffsets[0][0], cur_sz)
                     raise Pebkac(400, t)
 
             job["busy"][chash] = 1
 
         job["poke"] = time.time()
 
-        return chunksize, ofs, path, job["lmod"], job["sprs"]
+        return chunksize, coffsets, path, job["lmod"], job["sprs"]
 
-    def release_chunk(self, ptop: str, wark: str, chash: str) -> bool:
+    def release_chunks(self, ptop: str, wark: str, chashes: list[str]) -> bool:
         with self.reg_mutex:
             job = self.registry[ptop].get(wark)
             if job:
-                job["busy"].pop(chash, None)
+                for chash in chashes:
+                    job["busy"].pop(chash, None)
 
         return True
 
-    def confirm_chunk(self, ptop: str, wark: str, chash: str) -> tuple[int, str]:
+    def confirm_chunks(
+        self, ptop: str, wark: str, chashes: list[str]
+    ) -> tuple[int, str]:
         with self.mutex, self.reg_mutex:
             self.db_act = self.vol_act[ptop] = time.time()
             try:
@@ -3075,14 +3092,16 @@ class Up2k(object):
                 src = djoin(pdir, job["tnam"])
                 dst = djoin(pdir, job["name"])
             except Exception as ex:
-                return "confirm_chunk, wark, " + repr(ex)  # type: ignore
+                return "confirm_chunk, wark(%r)" % (ex,)  # type: ignore
 
-            job["busy"].pop(chash, None)
+            for chash in chashes:
+                job["busy"].pop(chash, None)
 
             try:
-                job["need"].remove(chash)
+                for chash in chashes:
+                    job["need"].remove(chash)
             except Exception as ex:
-                return "confirm_chunk, chash, " + repr(ex)  # type: ignore
+                return "confirm_chunk, chash(%s) %r" % (chash, ex)  # type: ignore
 
             ret = len(job["need"])
             if ret > 0:

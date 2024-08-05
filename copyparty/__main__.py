@@ -67,7 +67,13 @@ if True:  # pylint: disable=using-constant-test
 
     from typing import Any, Optional
 
+if PY2:
+    range = xrange  # type: ignore
+
 try:
+    if os.environ.get("PRTY_NO_TLS"):
+        raise Exception()
+
     HAVE_SSL = True
     import ssl
 except:
@@ -344,7 +350,7 @@ def configure_ssl_ver(al: argparse.Namespace) -> None:
     # oh man i love openssl
     # check this out
     # hold my beer
-    assert ssl
+    assert ssl  # type: ignore
     ptn = re.compile(r"^OP_NO_(TLS|SSL)v")
     sslver = terse_sslver(al.ssl_ver).split(",")
     flags = [k for k in ssl.__dict__ if ptn.match(k)]
@@ -378,7 +384,7 @@ def configure_ssl_ver(al: argparse.Namespace) -> None:
 
 
 def configure_ssl_ciphers(al: argparse.Namespace) -> None:
-    assert ssl
+    assert ssl  # type: ignore
     ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     if al.ssl_ver:
         ctx.options &= ~al.ssl_flags_en
@@ -491,11 +497,20 @@ def disable_quickedit() -> None:
 
 
 def sfx_tpoke(top: str):
-    files = [os.path.join(dp, p) for dp, dd, df in os.walk(top) for p in dd + df]
+    if os.environ.get("PRTY_NO_TPOKE"):
+        return
+
+    files = [top] + [
+        os.path.join(dp, p) for dp, dd, df in os.walk(top) for p in dd + df
+    ]
     while True:
         t = int(time.time())
-        for f in [top] + files:
-            os.utime(f, (t, t))
+        for f in list(files):
+            try:
+                os.utime(f, (t, t))
+            except Exception as ex:
+                lprint("<TPOKE> [%s] %r" % (f, ex))
+                files.remove(f)
 
         time.sleep(78123)
 
@@ -942,6 +957,7 @@ def add_upload(ap):
     ap2.add_argument("--sparse", metavar="MiB", type=int, default=4, help="windows-only: minimum size of incoming uploads through up2k before they are made into sparse files")
     ap2.add_argument("--turbo", metavar="LVL", type=int, default=0, help="configure turbo-mode in up2k client; [\033[32m-1\033[0m] = forbidden/always-off, [\033[32m0\033[0m] = default-off and warn if enabled, [\033[32m1\033[0m] = default-off, [\033[32m2\033[0m] = on, [\033[32m3\033[0m] = on and disable datecheck")
     ap2.add_argument("--u2j", metavar="JOBS", type=int, default=2, help="web-client: number of file chunks to upload in parallel; 1 or 2 is good for low-latency (same-country) connections, 4-8 for android clients, 16 for cross-atlantic (max=64)")
+    ap2.add_argument("--u2sz", metavar="N,N,N", type=u, default="1,64,96", help="web-client: default upload chunksize (MiB); sets \033[33mmin,default,max\033[0m in the settings gui. Each HTTP POST will aim for this size. Cloudflare max is 96. Big values are good for cross-atlantic but may increase HDD fragmentation on some FS. Disable this optimization with [\033[32m1,1,1\033[0m]")
     ap2.add_argument("--u2sort", metavar="TXT", type=u, default="s", help="upload order; [\033[32ms\033[0m]=smallest-first, [\033[32mn\033[0m]=alphabetical, [\033[32mfs\033[0m]=force-s, [\033[32mfn\033[0m]=force-n -- alphabetical is a bit slower on fiber/LAN but makes it easier to eyeball if everything went fine")
     ap2.add_argument("--write-uplog", action="store_true", help="write POST reports to textfiles in working-directory")
 

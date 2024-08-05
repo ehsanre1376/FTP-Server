@@ -127,13 +127,13 @@ if ((document.location + '').indexOf(',rej,') + 1)
 
 try {
     console.hist = [];
-    var CMAXHIST = 1000;
+    var CMAXHIST = MOBILE ? 9000 : 44000;
     var hook = function (t) {
         var orig = console[t].bind(console),
             cfun = function () {
                 console.hist.push(Date.now() + ' ' + t + ': ' + Array.from(arguments).join(', '));
                 if (console.hist.length > CMAXHIST)
-                    console.hist = console.hist.slice(CMAXHIST / 2);
+                    console.hist = console.hist.slice(CMAXHIST / 4);
 
                 orig.apply(console, arguments);
             };
@@ -1396,10 +1396,10 @@ var tt = (function () {
             o = ctr.querySelectorAll('*[tt]');
 
         for (var a = o.length - 1; a >= 0; a--) {
-            o[a].onfocus = _cshow;
-            o[a].onblur = _hide;
-            o[a].onmouseenter = _dshow;
-            o[a].onmouseleave = _hide;
+            o[a].addEventListener('focus', _cshow);
+            o[a].addEventListener('blur', _hide);
+            o[a].addEventListener('mouseenter', _dshow);
+            o[a].addEventListener('mouseleave', _hide);
         }
         r.hide();
     }
@@ -1536,6 +1536,7 @@ var modal = (function () {
     var r = {},
         q = [],
         o = null,
+        scrolling = null,
         cb_up = null,
         cb_ok = null,
         cb_ng = null,
@@ -1556,6 +1557,7 @@ var modal = (function () {
     r.nofocus = 0;
 
     r.show = function (html) {
+        tt.hide();
         o = mknod('div', 'modal');
         o.innerHTML = '<table><tr><td><div id="modalc">' + html + '</div></td></tr></table>';
         document.body.appendChild(o);
@@ -1579,6 +1581,7 @@ var modal = (function () {
 
         document.addEventListener('focus', onfocus);
         document.addEventListener('selectionchange', onselch);
+        timer.add(scrollchk, 1);
         timer.add(onfocus);
         if (cb_up)
             setTimeout(cb_up, 1);
@@ -1586,6 +1589,8 @@ var modal = (function () {
 
     r.hide = function () {
         timer.rm(onfocus);
+        timer.rm(scrollchk);
+        scrolling = null;
         try {
             ebi('modal-ok').removeEventListener('blur', onblur);
         }
@@ -1604,13 +1609,28 @@ var modal = (function () {
         r.hide();
         if (cb_ok)
             cb_ok(v);
-    }
+    };
     var ng = function (e) {
         ev(e);
         r.hide();
         if (cb_ng)
             cb_ng(null);
-    }
+    };
+
+    var scrollchk = function () {
+        if (scrolling === true)
+            return;
+
+        var o = ebi('modalc'),
+            vis = o.offsetHeight,
+            all = o.scrollHeight,
+            nsc = 8 + vis < all;
+
+        if (scrolling !== nsc)
+            clmod(o, 'yk', !nsc);
+
+        scrolling = nsc;
+    };
 
     var onselch = function () {
         try {

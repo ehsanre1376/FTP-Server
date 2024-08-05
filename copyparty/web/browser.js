@@ -210,6 +210,8 @@ var Ls = {
 
 		"cut_datechk": "has no effect unless the turbo button is enabled$N$Nreduces the yolo factor by a tiny amount; checks whether the file timestamps on the server matches yours$N$Nshould <em>theoretically</em> catch most unfinished / corrupted uploads, but is not a substitute for doing a verification pass with turbo disabled afterwards\">date-chk",
 
+		"cut_u2sz": "size (in MiB) of each upload chunk; big values fly better across the atlantic. Try low values on very unreliable connections",
+
 		"cut_flag": "ensure only one tab is uploading at a time $N -- other tabs must have this enabled too $N -- only affects tabs on the same domain",
 
 		"cut_az": "upload files in alphabetical order, rather than smallest-file-first$N$Nalphabetical order can make it easier to eyeball if something went wrong on the server, but it makes uploading slightly slower on fiber / LAN",
@@ -268,6 +270,8 @@ var Ls = {
 		"mb_play": "play",
 		"mm_hashplay": "play this audio file?",
 		"mp_breq": "need firefox 82+ or chrome 73+ or iOS 15+",
+		"mm_bload": "now loading...",
+		"mm_bconv": "converting to {0}, please wait...",
 		"mm_opusen": "your browser cannot play aac / m4a files;\ntranscoding to opus is now enabled",
 		"mm_playerr": "playback failed: ",
 		"mm_eabrt": "The playback attempt was cancelled",
@@ -358,6 +362,7 @@ var Ls = {
 		"tvt_sel": "select file &nbsp; ( for cut / delete / ... )$NHotkey: S\">sel",
 		"tvt_edit": "open file in text editor$NHotkey: E\">✏️ edit",
 
+		"gt_vau": "don't show videos, just play the audio\">🎧",
 		"gt_msel": "enable file selection; ctrl-click a file to override$N$N&lt;em&gt;when active: doubleclick a file / folder to open it&lt;/em&gt;$N$NHotkey: S\">multiselect",
 		"gt_crop": "center-crop thumbnails\">crop",
 		"gt_3x": "hi-res thumbnails\">3x",
@@ -461,7 +466,7 @@ var Ls = {
 		"u_badf": 'These {0} files (of {1} total) were skipped, possibly due to filesystem permissions:\n\n',
 		"u_blankf": 'These {0} files (of {1} total) are blank / empty; upload them anyways?\n\n',
 		"u_just1": '\nMaybe it works better if you select just one file',
-		"u_ff_many": "This amount of files <em>may</em> cause Firefox to skip some files, or crash.\nPlease try again with fewer files (or use Chrome) if that happens.",
+		"u_ff_many": "if you're using <b>Linux / MacOS / Android,</b> then this amount of files <a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=1790500\" target=\"_blank\"><em>may</em> crash Firefox!</a>\nif that happens, please try again (or use Chrome).",
 		"u_up_life": "This upload will be deleted from the server\n{0} after it completes",
 		"u_asku": 'upload these {0} files to <code>{1}</code>',
 		"u_unpt": "you can undo / delete this upload using the top-left 🧯",
@@ -478,12 +483,13 @@ var Ls = {
 		"u_ehsinit": "server rejected the request to initiate upload; retrying...",
 		"u_eneths": "network error while performing upload handshake; retrying...",
 		"u_enethd": "network error while testing target existence; retrying...",
+		"u_cbusy": "waiting for server to trust us again after a network glitch...",
 		"u_ehsdf": "server ran out of disk space!\n\nwill keep retrying, in case someone\nfrees up enough space to continue",
 		"u_emtleak1": "it looks like your webbrowser may have a memory leak;\nplease",
 		"u_emtleak2": ' <a href="{0}">switch to https (recommended)</a> or ',
 		"u_emtleak3": ' ',
-		"u_emtleakc": 'try the following:\n<ul><li>hit <code>F5</code> to refresh the page</li><li>then disable the &nbsp;<code>mt</code>&nbsp; button in the &nbsp;<code>⚙️ settings</code></li><li>and try that upload again</li></ul>Uploads will be a bit slower, but oh well.\nSorry for the trouble !\n\nPS: chrome v107 <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=1354816">has a bugfix</a> for this',
-		"u_emtleakf": 'try the following:\n<ul><li>hit <code>F5</code> to refresh the page</li><li>then enable <code>🥔</code> (potato) in the upload UI<li>and try that upload again</li></ul>\nPS: firefox <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500">will hopefully have a bugfix</a> at some point',
+		"u_emtleakc": 'try the following:\n<ul><li>hit <code>F5</code> to refresh the page</li><li>then disable the &nbsp;<code>mt</code>&nbsp; button in the &nbsp;<code>⚙️ settings</code></li><li>and try that upload again</li></ul>Uploads will be a bit slower, but oh well.\nSorry for the trouble !\n\nPS: chrome v107 <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=1354816" target="_blank">has a bugfix</a> for this',
+		"u_emtleakf": 'try the following:\n<ul><li>hit <code>F5</code> to refresh the page</li><li>then enable <code>🥔</code> (potato) in the upload UI<li>and try that upload again</li></ul>\nPS: firefox <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500" target="_blank">will hopefully have a bugfix</a> at some point',
 		"u_s404": "not found on server",
 		"u_expl": "explain",
 		"u_maxconn": "most browsers limit this to 6, but firefox lets you raise it with <code>connections-per-server</code> in <code>about:config</code>",
@@ -721,6 +727,8 @@ var Ls = {
 
 		"cut_datechk": "har ingen effekt dersom turbo er avslått$N$Ngjør turbo bittelitt tryggere ved å sjekke datostemplingen på filene (i tillegg til filstørrelse)$N$N<em>burde</em> oppdage og gjenoppta de fleste ufullstendige opplastninger, men er <em>ikke</em> en fullverdig erstatning for å deaktivere turbo og gjøre en skikkelig sjekk\">date-chk",
 
+		"cut_u2sz": "størrelse i megabyte for hvert bruddstykke for opplastning. Store verdier flyr bedre over atlanteren. Små verdier kan være bedre på særdeles ustabile forbindelser",
+
 		"cut_flag": "samkjører nettleserfaner slik at bare én $N kan holde på med befaring / opplastning $N -- andre faner må også ha denne skrudd på $N -- fungerer kun innenfor samme domene",
 
 		"cut_az": "last opp filer i alfabetisk rekkefølge, istedenfor minste-fil-først$N$Nalfabetisk kan gjøre det lettere å anslå om alt gikk bra, men er bittelitt tregere på fiber / LAN",
@@ -779,6 +787,8 @@ var Ls = {
 		"mb_play": "lytt",
 		"mm_hashplay": "spill denne sangen?",
 		"mp_breq": "krever firefox 82+, chrome 73+, eller iOS 15+",
+		"mm_bload": "laster inn...",
+		"mm_bconv": "konverterer til {0}, vent litt...",
 		"mm_opusen": "nettleseren din forstår ikke aac / m4a;\nkonvertering til opus er nå aktivert",
 		"mm_playerr": "avspilling feilet: ",
 		"mm_eabrt": "Avspillingsforespørselen ble avbrutt",
@@ -869,6 +879,7 @@ var Ls = {
 		"tvt_sel": "markér filen &nbsp; ( for utklipp / sletting / ... )$NSnarvei: S\">merk",
 		"tvt_edit": "redigér filen$NSnarvei: E\">✏️ endre",
 
+		"gt_vau": "ikke vis videofiler, bare spill lyden\">🎧",
 		"gt_msel": "markér filer istedenfor å åpne dem; ctrl-klikk filer for å overstyre$N$N&lt;em&gt;når aktiv: dobbelklikk en fil / mappe for å åpne&lt;/em&gt;$N$NSnarvei: S\">markering",
 		"gt_crop": "beskjær ikonene så de passer bedre\">✂",
 		"gt_3x": "høyere oppløsning på ikoner\">3x",
@@ -972,7 +983,7 @@ var Ls = {
 		"u_badf": 'Disse {0} filene (av totalt {1}) kan ikke leses, kanskje pga rettighetsproblemer i filsystemet på datamaskinen din:\n\n',
 		"u_blankf": 'Disse {0} filene (av totalt {1}) er blanke / uten innhold; ønsker du å laste dem opp uansett?\n\n',
 		"u_just1": '\nFunker kanskje bedre hvis du bare tar én fil om gangen',
-		"u_ff_many": "Det var mange filer! Mulig at Firefox kommer til å krasje, eller\nhoppe over et par av dem. Smart å ha Chrome på lur i tilfelle.",
+		"u_ff_many": 'Hvis du bruker <b>Linux / MacOS / Android,</b> så kan dette antallet filer<br /><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500" target="_blank"><em>kanskje</em> krasje Firefox!</a> Hvis det skjer, så prøv igjen (eller bruk Chrome).',
 		"u_up_life": "Filene slettes fra serveren {0}\netter at opplastningen er fullført",
 		"u_asku": 'Laste opp disse {0} filene til <code>{1}</code>',
 		"u_unpt": "Du kan angre / slette opplastningen med 🧯 oppe til venstre",
@@ -989,12 +1000,13 @@ var Ls = {
 		"u_ehsinit": "server nektet forespørselen om å begynne en ny opplastning; prøver igjen...",
 		"u_eneths": "et problem med nettverket gjorde at avtale om opplastning ikke kunne inngås; prøver igjen...",
 		"u_enethd": "et problem med nettverket gjorde at filsjekk ikke kunne utføres; prøver igjen...",
+		"u_cbusy": "venter på klarering ifra server etter et lite nettverksglipp...",
 		"u_ehsdf": "serveren er full!\n\nprøver igjen regelmessig,\ni tilfelle noen rydder litt...",
 		"u_emtleak1": "uff, det er mulig at nettleseren din har en minnelekkasje...\nForeslår",
 		"u_emtleak2": ' helst at du <a href="{0}">bytter til https</a>, eller ',
 		"u_emtleak3": ' at du ',
-		"u_emtleakc": 'prøver følgende:\n<ul><li>trykk F5 for å laste siden på nytt</li><li>så skru av &nbsp;<code>mt</code>&nbsp; bryteren under &nbsp;<code>⚙️ innstillinger</code></li><li>og forsøk den samme opplastningen igjen</li></ul>Opplastning vil gå litt tregere, men det får så være.\nBeklager bryderiet !\n\nPS: feilen <a href="<a href="https://bugs.chromium.org/p/chromium/issues/detail?id=1354816">skal være fikset</a> i chrome v107',
-		"u_emtleakf": 'prøver følgende:\n<ul><li>trykk F5 for å laste siden på nytt</li><li>så skru på <code>🥔</code> ("enkelt UI") i opplasteren</li><li>og forsøk den samme opplastningen igjen</li></ul>\nPS: Firefox <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500">fikser forhåpentligvis feilen</a> en eller annen gang',
+		"u_emtleakc": 'prøver følgende:\n<ul><li>trykk F5 for å laste siden på nytt</li><li>så skru av &nbsp;<code>mt</code>&nbsp; bryteren under &nbsp;<code>⚙️ innstillinger</code></li><li>og forsøk den samme opplastningen igjen</li></ul>Opplastning vil gå litt tregere, men det får så være.\nBeklager bryderiet !\n\nPS: feilen <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=1354816" target="_blank">skal være fikset</a> i chrome v107',
+		"u_emtleakf": 'prøver følgende:\n<ul><li>trykk F5 for å laste siden på nytt</li><li>så skru på <code>🥔</code> ("enkelt UI") i opplasteren</li><li>og forsøk den samme opplastningen igjen</li></ul>\nPS: Firefox <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500" target="_blank">fikser forhåpentligvis feilen</a> en eller annen gang',
 		"u_s404": "ikke funnet på serveren",
 		"u_expl": "forklar",
 		"u_maxconn": "de fleste nettlesere tillater ikke mer enn 6, men firefox lar deg øke grensen med <code>connections-per-server</code> i <code>about:config</code>",
@@ -1251,6 +1263,7 @@ ebi('op_cfg').innerHTML = (
 	'		<a id="hashw" class="tgl btn" href="#" tt="' + L.cut_mt + '</a>\n' +
 	'		<a id="u2turbo" class="tgl btn ttb" href="#" tt="' + L.cut_turbo + '</a>\n' +
 	'		<a id="u2tdate" class="tgl btn ttb" href="#" tt="' + L.cut_datechk + '</a>\n' +
+	'		<input type="text" id="u2szg" value="" ' + NOAC + ' style="width:3em" tt="' + L.cut_u2sz + '" />' +
 	'		<a id="flag_en" class="tgl btn" href="#" tt="' + L.cut_flag + '">💤</a>\n' +
 	'		<a id="u2sort" class="tgl btn" href="#" tt="' + L.cut_az + '">az</a>\n' +
 	'		<a id="upnag" class="tgl btn" href="#" tt="' + L.cut_nag + '">🔔</a>\n' +
@@ -1593,6 +1606,8 @@ var mpl = (function () {
 	r.pp = function () {
 		var adur, apos, playing = mp.au && !mp.au.paused;
 
+		clearTimeout(mpl.t_eplay);
+
 		clmod(ebi('np_inf'), 'playing', playing);
 
 		if (mp.au && isNum(adur = mp.au.duration) && isNum(apos = mp.au.currentTime) && apos >= 0)
@@ -1702,7 +1717,7 @@ catch (ex) { }
 
 
 var re_au_native = (can_ogg || have_acode) ? /\.(aac|flac|m4a|mp3|ogg|opus|wav)$/i : /\.(aac|flac|m4a|mp3|wav)$/i,
-	re_au_all = /\.(aac|ac3|aif|aiff|alac|alaw|amr|ape|au|dfpwm|dts|flac|gsm|it|itgz|itxz|itz|m4a|mdgz|mdxz|mdz|mo3|mod|mp2|mp3|mpc|mptm|mt2|mulaw|ogg|okt|opus|ra|s3m|s3gz|s3xz|s3z|tak|tta|ulaw|wav|wma|wv|xm|xmgz|xmxz|xmz|xpk)$/i;
+	re_au_all = /\.(aac|ac3|aif|aiff|alac|alaw|amr|ape|au|dfpwm|dts|flac|gsm|it|itgz|itxz|itz|m4a|mdgz|mdxz|mdz|mo3|mod|mp2|mp3|mpc|mptm|mt2|mulaw|ogg|okt|opus|ra|s3m|s3gz|s3xz|s3z|tak|tta|ulaw|wav|wma|wv|xm|xmgz|xmxz|xmz|xpk|3gp|asf|avi|flv|m4v|mkv|mov|mp4|mpeg|mpeg2|mpegts|mpg|mpg2|nut|ogm|ogv|rm|ts|vob|webm|wmv)$/i;
 
 
 // extract songs + add play column
@@ -2178,8 +2193,21 @@ var pbar = (function () {
 		}
 		pctx.clearRect(0, 0, pc.w, pc.h);
 
-		if (!mp || !mp.au || !isNum(adur = mp.au.duration) || !isNum(apos = mp.au.currentTime) || apos < 0 || adur < apos)
+		if (!mp || !mp.au)
+			return;  // not-init
+
+		if (!isNum(adur = mp.au.duration) || !isNum(apos = mp.au.currentTime) || apos < 0 || adur < apos) {
+			if (Date.now() - mp.au.pt0 < 500)
+				return;
+
+			pctx.fillStyle = light ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
+			var m = /[?&]th=(opus|caf|mp3)/.exec('' + mp.au.rsrc),
+				txt = mp.au.ded ? L.mm_playerr.replace(':', ' ;_;') :
+					m ? L.mm_bconv.format(m[1]) : L.mm_bload;
+
+			pctx.fillText(txt, 16, pc.h / 1.5);
 			return;  // not-init || unsupp-codec
+		}
 
 		if (bau != mp.au)
 			r.drawbuf();
@@ -3145,7 +3173,9 @@ function play(tid, is_ev, seek) {
 		mpl.unbuffer(url);
 	}, 500);
 
+	mp.au.ded = 0;
 	mp.au.tid = tid;
+	mp.au.pt0 = Date.now();
 	mp.au.evp = get_evpath();
 	mp.au.volume = mp.expvol(mp.vol);
 	var trs = QSA('#files tr.play');
@@ -3212,6 +3242,8 @@ function scroll2playing() {
 function evau_error(e) {
 	var err = '',
 		eplaya = (e && e.target) || (window.event && window.event.srcElement);
+
+	eplaya.ded = 1;
 
 	switch (eplaya.error.code) {
 		case eplaya.error.MEDIA_ERR_ABORTED:
@@ -3327,6 +3359,7 @@ function scan_hash(v) {
 
 
 function eval_hash() {
+	document.onkeydown = ahotkeys;
 	window.onpopstate = treectl.onpopfun;
 
 	if (hash0 && window.og_fn) {
@@ -4403,7 +4436,7 @@ var showfile = (function () {
 
 			var td = ebi(link.id).closest('tr').getElementsByTagName('td')[0];
 
-			if (lang == 'md' && td.textContent != '-')
+			if (lang == 'ts' || (lang == 'md' && td.textContent != '-'))
 				continue;
 
 			td.innerHTML = '<a href="#" id="t' +
@@ -4670,6 +4703,7 @@ var thegrid = (function () {
 	gfiles.style.display = 'none';
 	gfiles.innerHTML = (
 		'<div id="ghead" class="ghead">' +
+		'<a href="#" class="tgl btn" id="gridvau" tt="' + L.gt_vau + '</a> ' +
 		'<a href="#" class="tgl btn" id="gridsel" tt="' + L.gt_msel + '</a> ' +
 		'<a href="#" class="tgl btn" id="gridcrop" tt="' + L.gt_crop + '</a> ' +
 		'<a href="#" class="tgl btn" id="grid3x" tt="' + L.gt_3x + '</a> ' +
@@ -4831,7 +4865,7 @@ var thegrid = (function () {
 		else if (oth.hasAttribute('download'))
 			oth.click();
 
-		else if (widget.is_open && aplay)
+		else if (aplay && (r.vau || !is_img))
 			aplay.click();
 
 		else if (is_dir && !have_sel)
@@ -5122,6 +5156,7 @@ var thegrid = (function () {
 
 	bcfg_bind(r, 'thumbs', 'thumbs', true, r.setdirty);
 	bcfg_bind(r, 'ihop', 'ihop', true);
+	bcfg_bind(r, 'vau', 'gridvau', false);
 	bcfg_bind(r, 'crop', 'gridcrop', !dcrop.endsWith('n'), r.set_crop);
 	bcfg_bind(r, 'x3', 'grid3x', dth3x.endsWith('y'), r.set_x3);
 	bcfg_bind(r, 'sel', 'gridsel', false, r.loadsel);
@@ -5221,7 +5256,9 @@ function tree_up(justgo) {
 		if (!justgo)
 			return;
 	}
-	act.parentNode.parentNode.parentNode.getElementsByTagName('a')[1].click();
+	var a = act.parentNode.parentNode.parentNode.getElementsByTagName('a')[1];
+	if (a.parentNode.tagName == 'LI')
+		a.click();
 }
 
 
@@ -5284,7 +5321,7 @@ function fselfunw(e, ae, d, rem) {
 	}
 	selfun();
 }
-document.onkeydown = function (e) {
+var ahotkeys = function (e) {
 	if (e.altKey || e.isComposing)
 		return;
 
@@ -7992,7 +8029,8 @@ function sandbox(tgt, rules, cls, html) {
 			env = js.split(/\blogues *=/)[0] + 'a;';
 	}
 
-	html = '<html class="iframe ' + document.documentElement.className + '"><head><style>' + globalcss() +
+	html = '<html class="iframe ' + document.documentElement.className +
+		'"><head><style>html{background:#eee;color:#000}\n' + globalcss() +
 		'</style><base target="_parent"></head><body id="b" class="logue ' + cls + '">' + html +
 		'<script>' + env + '</script>' + sandboxjs() +
 		'<script>var d=document.documentElement,TS="' + TS + '",' +

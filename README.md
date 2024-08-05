@@ -85,6 +85,7 @@ turn almost any device into a file server with resumable uploads/downloads using
     * [prometheus](#prometheus) - metrics/stats can be enabled
     * [other extremely specific features](#other-extremely-specific-features) - you'll never find a use for these
         * [custom mimetypes](#custom-mimetypes) - change the association of a file extension
+        * [feature chickenbits](#feature-chickenbits) - buggy feature? rip it out
 * [packages](#packages) - the party might be closer than you think
     * [arch package](#arch-package) - now [available on aur](https://aur.archlinux.org/packages/copyparty) maintained by [@icxes](https://github.com/icxes)
     * [fedora package](#fedora-package) - does not exist yet
@@ -111,6 +112,7 @@ turn almost any device into a file server with resumable uploads/downloads using
 * [HTTP API](#HTTP-API) - see [devnotes](./docs/devnotes.md#http-api)
 * [dependencies](#dependencies) - mandatory deps
     * [optional dependencies](#optional-dependencies) - install these to enable bonus features
+        * [dependency chickenbits](#dependency-chickenbits) - prevent loading an optional dependency
     * [optional gpl stuff](#optional-gpl-stuff)
 * [sfx](#sfx) - the self-contained "binary" (recommended!)
     * [copyparty.exe](#copypartyexe) - download [copyparty.exe](https://github.com/9001/copyparty/releases/latest/download/copyparty.exe) (win8+) or [copyparty32.exe](https://github.com/9001/copyparty/releases/latest/download/copyparty32.exe) (win7+)
@@ -209,7 +211,7 @@ also see [comparison to similar software](./docs/versus.md)
 * upload
   * ☑ basic: plain multipart, ie6 support
   * ☑ [up2k](#uploading): js, resumable, multithreaded
-    * unaffected by cloudflare's max-upload-size (100 MiB)
+    * **no filesize limit!** ...unless you use Cloudflare, then it's 383.9 GiB
   * ☑ stash: simple PUT filedropper
   * ☑ filename randomizer
   * ☑ write-only folders
@@ -225,6 +227,7 @@ also see [comparison to similar software](./docs/versus.md)
   * ☑ [navpane](#navpane) (directory tree sidebar)
   * ☑ file manager (cut/paste, delete, [batch-rename](#batch-rename))
   * ☑ audio player (with [OS media controls](https://user-images.githubusercontent.com/241032/215347492-b4250797-6c90-4e09-9a4c-721edf2fb15c.png) and opus/mp3 transcoding)
+    * ☑ play video files as audio (converted on server)
   * ☑ image gallery with webm player
   * ☑ textfile browser with syntax hilighting
   * ☑ [thumbnails](#thumbnails)
@@ -646,6 +649,7 @@ up2k has several advantages:
   * uploads resume if you reboot your browser or pc, just upload the same files again
   * server detects any corruption; the client reuploads affected chunks
   * the client doesn't upload anything that already exists on the server
+  * no filesize limit unless imposed by a proxy, for example Cloudflare, which blocks uploads over 383.9 GiB
 * much higher speeds than ftp/scp/tarpipe on some internet connections (mainly american ones) thanks to parallel connections
 * the last-modified timestamp of the file is preserved
 
@@ -800,6 +804,7 @@ some hilights:
 * OS integration; control playback from your phone's lockscreen ([windows](https://user-images.githubusercontent.com/241032/233213022-298a98ba-721a-4cf1-a3d4-f62634bc53d5.png) // [iOS](https://user-images.githubusercontent.com/241032/142711926-0700be6c-3e31-47b3-9928-53722221f722.png) // [android](https://user-images.githubusercontent.com/241032/233212311-a7368590-08c7-4f9f-a1af-48ccf3f36fad.png))
 * shows the audio waveform in the seekbar
 * not perfectly gapless but can get really close (see settings + eq below); good enough to enjoy gapless albums as intended
+* videos can be played as audio, without wasting bandwidth on the video
 
 click the `play` link next to an audio file, or copy the link target to [share it](https://a.ocv.me/pub/demo/music/Ubiktune%20-%20SOUNDSHOCK%202%20-%20FM%20FUNK%20TERRROR!!/#af-1fbfba61&t=18) (optionally with a timestamp to start playing from, like that example does)
 
@@ -987,7 +992,7 @@ some recommended FTP / FTPS clients; `wark` = example password:
 
 ## webdav server
 
-with read-write support,  supports winXP and later, macos, nautilus/gvfs
+with read-write support,  supports winXP and later, macos, nautilus/gvfs  ... a greay way to [access copyparty straight from the file explorer in your OS](#mount-as-drive)
 
 click the [connect](http://127.0.0.1:3923/?hc) button in the control-panel to see connection instructions for windows, linux, macos
 
@@ -1555,6 +1560,23 @@ in a config-file, this is the same as:
 run copyparty with `--mimes` to list all the default mappings
 
 
+### feature chickenbits
+
+buggy feature? rip it out  by setting any of the following environment variables to disable its associated bell or whistle,
+
+| env-var              | what it does |
+| -------------------- | ------------ |
+| `PRTY_NO_IFADDR`     | disable ip/nic discovery by poking into your OS with ctypes |
+| `PRTY_NO_IPV6`       | disable some ipv6 support (should not be necessary since windows 2000) |
+| `PRTY_NO_LZMA`       | disable streaming xz compression of incoming uploads |
+| `PRTY_NO_MP`         | disable all use of the python `multiprocessing` module (actual multithreading, cpu-count for parsers/thumbnailers) |
+| `PRTY_NO_SQLITE`     | disable all database-related functionality (file indexing, metadata indexing, most file deduplication logic) |
+| `PRTY_NO_TLS`        | disable native HTTPS support; if you still want to accept HTTPS connections then TLS must now be terminated by a reverse-proxy |
+| `PRTY_NO_TPOKE`      | disable systemd-tmpfilesd avoider |
+
+example: `PRTY_NO_IFADDR=1 python3 copyparty-sfx.py`
+
+
 # packages
 
 the party might be closer than you think
@@ -1798,7 +1820,7 @@ alternatively, some alternatives roughly sorted by speed (unreproducible benchma
 * [rclone-http](./docs/rclone.md) (26s), read-only
 * [partyfuse.py](./bin/#partyfusepy) (35s), read-only
 * [rclone-ftp](./docs/rclone.md) (47s), read/WRITE
-* davfs2 (103s), read/WRITE, *very fast* on small files
+* davfs2 (103s), read/WRITE
 * [win10-webdav](#webdav-server) (138s), read/WRITE
 * [win10-smb2](#smb-server) (387s), read/WRITE
 
@@ -2039,6 +2061,36 @@ enable [smb](#smb-server) support (**not** recommended):
 * `impacket==0.11.0`
 
 `pyvips` gives higher quality thumbnails than `Pillow` and is 320% faster, using 270% more ram: `sudo apt install libvips42 && python3 -m pip install --user -U pyvips`
+
+
+### dependency chickenbits
+
+prevent loading an optional dependency  , for example if:
+
+* you have an incompatible version installed and it causes problems
+* you just don't want copyparty to use it, maybe to save ram
+
+set any of the following environment variables to disable its associated optional feature,
+
+| env-var              | what it does |
+| -------------------- | ------------ |
+| `PRTY_NO_CFSSL`      | never attempt to generate self-signed certificates using [cfssl](https://github.com/cloudflare/cfssl) |
+| `PRTY_NO_FFMPEG`     | **audio transcoding** goes byebye, **thumbnailing** must be handled by Pillow/libvips |
+| `PRTY_NO_FFPROBE`    | **audio transcoding** goes byebye, **thumbnailing** must be handled by Pillow/libvips, **metadata-scanning** must be handled by mutagen |
+| `PRTY_NO_MUTAGEN`    | do not use [mutagen](https://pypi.org/project/mutagen/) for reading metadata from media files; will fallback to ffprobe |
+| `PRTY_NO_PIL`        | disable all [Pillow](https://pypi.org/project/pillow/)-based thumbnail support; will fallback to libvips or ffmpeg |
+| `PRTY_NO_PILF`       | disable Pillow `ImageFont` text rendering, used for folder thumbnails |
+| `PRTY_NO_PIL_AVIF`   | disable 3rd-party Pillow plugin for [AVIF support](https://pypi.org/project/pillow-avif-plugin/) |
+| `PRTY_NO_PIL_HEIF`   | disable 3rd-party Pillow plugin for [HEIF support](https://pypi.org/project/pyheif-pillow-opener/) |
+| `PRTY_NO_PIL_WEBP`   | disable use of native webp support in Pillow |
+| `PRTY_NO_PSUTIL`     | do not use [psutil](https://pypi.org/project/psutil/) for reaping stuck hooks and plugins on Windows |
+| `PRTY_NO_VIPS`       | disable all [libvips](https://pypi.org/project/pyvips/)-based thumbnail support; will fallback to Pillow or ffmpeg |
+
+example: `PRTY_NO_PIL=1 python3 copyparty-sfx.py`
+
+* `PRTY_NO_PIL` saves ram
+* `PRTY_NO_VIPS` saves ram and startup time
+* python2.7 on windows: `PRTY_NO_FFMPEG` + `PRTY_NO_FFPROBE` saves startup time
 
 
 ## optional gpl stuff

@@ -12,7 +12,7 @@ import time
 
 from queue import Queue
 
-from .__init__ import ANYWIN, TYPE_CHECKING
+from .__init__ import ANYWIN, PY2, TYPE_CHECKING
 from .authsrv import VFS
 from .bos import bos
 from .mtag import HAVE_FFMPEG, HAVE_FFPROBE, au_unpk, ffprobe
@@ -38,6 +38,9 @@ if True:  # pylint: disable=using-constant-test
 if TYPE_CHECKING:
     from .svchub import SvcHub
 
+if PY2:
+    range = xrange  # type: ignore
+
 HAVE_PIL = False
 HAVE_PILF = False
 HAVE_HEIF = False
@@ -45,22 +48,34 @@ HAVE_AVIF = False
 HAVE_WEBP = False
 
 try:
+    if os.environ.get("PRTY_NO_PIL"):
+        raise Exception()
+
     from PIL import ExifTags, Image, ImageFont, ImageOps
 
     HAVE_PIL = True
     try:
+        if os.environ.get("PRTY_NO_PILF"):
+            raise Exception()
+
         ImageFont.load_default(size=16)
         HAVE_PILF = True
     except:
         pass
 
     try:
+        if os.environ.get("PRTY_NO_PIL_WEBP"):
+            raise Exception()
+
         Image.new("RGB", (2, 2)).save(BytesIO(), format="webp")
         HAVE_WEBP = True
     except:
         pass
 
     try:
+        if os.environ.get("PRTY_NO_PIL_HEIF"):
+            raise Exception()
+
         from pyheif_pillow_opener import register_heif_opener
 
         register_heif_opener()
@@ -69,6 +84,9 @@ try:
         pass
 
     try:
+        if os.environ.get("PRTY_NO_PIL_AVIF"):
+            raise Exception()
+
         import pillow_avif  # noqa: F401  # pylint: disable=unused-import
 
         HAVE_AVIF = True
@@ -80,6 +98,9 @@ except:
     pass
 
 try:
+    if os.environ.get("PRTY_NO_VIPS"):
+        raise Exception()
+
     HAVE_VIPS = True
     import pyvips
 
@@ -304,23 +325,31 @@ class ThumbSrv(object):
                 ap_unpk = abspath
 
             if not bos.path.exists(tpath):
+                want_mp3 = tpath.endswith(".mp3")
+                want_opus = tpath.endswith(".opus") or tpath.endswith(".caf")
+                want_png = tpath.endswith(".png")
+                want_au = want_mp3 or want_opus
                 for lib in self.args.th_dec:
+                    can_au = lib == "ff" and (
+                        ext in self.fmt_ffa or ext in self.fmt_ffv
+                    )
+
                     if lib == "pil" and ext in self.fmt_pil:
                         funs.append(self.conv_pil)
                     elif lib == "vips" and ext in self.fmt_vips:
                         funs.append(self.conv_vips)
-                    elif lib == "ff" and ext in self.fmt_ffi or ext in self.fmt_ffv:
-                        funs.append(self.conv_ffmpeg)
-                    elif lib == "ff" and ext in self.fmt_ffa:
-                        if tpath.endswith(".opus") or tpath.endswith(".caf"):
+                    elif can_au and (want_png or want_au):
+                        if want_opus:
                             funs.append(self.conv_opus)
-                        elif tpath.endswith(".mp3"):
+                        elif want_mp3:
                             funs.append(self.conv_mp3)
-                        elif tpath.endswith(".png"):
+                        elif want_png:
                             funs.append(self.conv_waves)
                             png_ok = True
-                        else:
-                            funs.append(self.conv_spec)
+                    elif lib == "ff" and (ext in self.fmt_ffi or ext in self.fmt_ffv):
+                        funs.append(self.conv_ffmpeg)
+                    elif lib == "ff" and ext in self.fmt_ffa and not want_au:
+                        funs.append(self.conv_spec)
 
             tdir, tfn = os.path.split(tpath)
             ttpath = os.path.join(tdir, "w", tfn)

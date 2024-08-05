@@ -658,7 +658,9 @@ function Donut(uc, st) {
     }
 
     function pos() {
-        return uc.fsearch ? Math.max(st.bytes.hashed, st.bytes.finished) : st.bytes.finished;
+        return uc.fsearch ?
+            Math.max(st.bytes.hashed, st.bytes.finished) :
+            st.bytes.inflight + st.bytes.finished;
     }
 
     r.on = function (ya) {
@@ -853,6 +855,7 @@ function up2k_init(subtle) {
     setmsg(suggest_up2k, 'msg');
 
     var parallel_uploads = ebi('nthread').value = icfg_get('nthread', u2j),
+        stitch_tgt = ebi('u2szg').value = icfg_get('u2sz', u2sz.split(',')[1]),
         uc = {},
         fdom_ctr = 0,
         biggest_file = 0;
@@ -1207,7 +1210,7 @@ function up2k_init(subtle) {
                     match = false;
 
             if (match) {
-                var msg = ['directory iterator got stuck on the following {0} items; good chance your browser is about to spinlock:<ul>'.format(missing.length)];
+                var msg = ['directory iterator got stuck trying to access the following {0} items; will skip:<ul>'.format(missing.length)];
                 for (var a = 0; a < Math.min(20, missing.length); a++)
                     msg.push('<li>' + esc(missing[a]) + '</li>');
 
@@ -1736,6 +1739,11 @@ function up2k_init(subtle) {
                     }
                 }
 
+                if (st.bytes.inflight && (st.bytes.inflight < 0 || !st.busy.upload.length)) {
+                    console.log('insane inflight ' + st.bytes.inflight);
+                    st.bytes.inflight = 0;
+                }
+
                 var mou_ikkai = false;
 
                 if (st.busy.handshake.length &&
@@ -2178,7 +2186,7 @@ function up2k_init(subtle) {
         st.busy.head.push(t);
 
         var xhr = new XMLHttpRequest();
-        xhr.onerror = function () {
+        xhr.onerror = xhr.ontimeout = function () {
             console.log('head onerror, retrying', t.name, t);
             if (!toast.visible)
                 toast.warn(9.98, L.u_enethd + "\n\nfile: " + t.name, t);
@@ -2222,6 +2230,7 @@ function up2k_init(subtle) {
             try { orz(e); } catch (ex) { vis_exh(ex + '', 'up2k.js', '', '', ex); }
         };
 
+        xhr.timeout = 34000;
         xhr.open('HEAD', t.purl + uricom_enc(t.name), true);
         xhr.send();
     }
@@ -2247,7 +2256,7 @@ function up2k_init(subtle) {
             console.log("sending keepalive handshake", t.name, t);
 
         var xhr = new XMLHttpRequest();
-        xhr.onerror = function () {
+        xhr.onerror = xhr.ontimeout = function () {
             if (t.t_busied != me)  // t.done ok
                 return console.log('zombie handshake onerror', t.name, t);
 
@@ -2374,11 +2383,24 @@ function up2k_init(subtle) {
                     var arr = st.todo.upload,
                         sort = arr.length && arr[arr.length - 1].nfile > t.n;
 
-                    for (var a = 0; a < t.postlist.length; a++)
+                    for (var a = 0; a < t.postlist.length; a++) {
+                        var nparts = [], tbytes = 0, stitch = stitch_tgt;
+                        if (t.nojoin && t.nojoin - t.postlist.length < 6)
+                            stitch = 1;
+
+                        --a;
+                        for (var b = 0; b < stitch; b++) {
+                            nparts.push(t.postlist[++a]);
+                            tbytes += chunksize;
+                            if (tbytes + chunksize > stitch * 1024 * 1024 || t.postlist[a + 1] - t.postlist[a] !== 1)
+                                break;
+                        }
                         arr.push({
                             'nfile': t.n,
-                            'npart': t.postlist[a]
+                            'nparts': nparts
                         });
+                    }
+                    t.nojoin = 0;
 
                     msg = null;
                     done = false;
@@ -2387,7 +2409,7 @@ function up2k_init(subtle) {
                         arr.sort(function (a, b) {
                             return a.nfile < b.nfile ? -1 :
                             /*  */ a.nfile > b.nfile ? 1 :
-                                    a.npart < b.npart ? -1 : 1;
+                            /*  */ a.nparts[0] < b.nparts[0] ? -1 : 1;
                         });
                 }
 
@@ -2493,6 +2515,7 @@ function up2k_init(subtle) {
 
         xhr.open('POST', t.purl, true);
         xhr.responseType = 'text';
+        xhr.timeout = 42000;
         xhr.send(JSON.stringify(req));
     }
 
@@ -2534,7 +2557,10 @@ function up2k_init(subtle) {
     function exec_upload() {
         var upt = st.todo.upload.shift(),
             t = st.files[upt.nfile],
-            npart = upt.npart,
+            nparts = upt.nparts,
+            pcar = nparts[0],
+            pcdr = nparts[nparts.length - 1],
+            snpart = pcar == pcdr ? pcar : ('' + pcar + '~' + pcdr),
             tries = 0;
 
         if (t.done)
@@ -2549,8 +2575,8 @@ function up2k_init(subtle) {
         pvis.seth(t.n, 1, "🚀 send");
 
         var chunksize = get_chunksize(t.size),
-            car = npart * chunksize,
-            cdr = car + chunksize;
+            car = pcar * chunksize,
+            cdr = (pcdr + 1) * chunksize;
 
         if (cdr >= t.size)
             cdr = t.size;
@@ -2560,14 +2586,19 @@ function up2k_init(subtle) {
             var txt = unpre((xhr.response && xhr.response.err) || xhr.responseText);
             if (txt.indexOf('upload blocked by x') + 1) {
                 apop(st.busy.upload, upt);
-                apop(t.postlist, npart);
+                for (var a = pcar; a <= pcdr; a++)
+                    apop(t.postlist, a);
                 pvis.seth(t.n, 1, "ERROR");
                 pvis.seth(t.n, 2, txt.split(/\n/)[0]);
                 pvis.move(t.n, 'ng');
                 return;
             }
             if (xhr.status == 200) {
-                pvis.prog(t, npart, cdr - car);
+                var bdone = cdr - car;
+                for (var a = pcar; a <= pcdr; a++) {
+                    pvis.prog(t, a, Math.min(bdone, chunksize));
+                    bdone -= chunksize;
+                }
                 st.bytes.finished += cdr - car;
                 st.bytes.uploaded += cdr - car;
                 t.bytes_uploaded += cdr - car;
@@ -2576,18 +2607,21 @@ function up2k_init(subtle) {
             }
             else if (txt.indexOf('already got that') + 1 ||
                 txt.indexOf('already being written') + 1) {
-                console.log("ignoring dupe-segment error", t.name, t);
+                t.nojoin = t.nojoin || t.postlist.length;
+                console.log("ignoring dupe-segment with backoff", t.nojoin, t.name, t);
+                if (!toast.visible && st.todo.upload.length < 4)
+                    toast.msg(10, L.u_cbusy);
             }
             else {
-                xhrchk(xhr, L.u_cuerr2.format(npart, Math.ceil(t.size / chunksize), t.name), "404, target folder not found (???)", "warn", t);
-
+                xhrchk(xhr, L.u_cuerr2.format(snpart, Math.ceil(t.size / chunksize), t.name), "404, target folder not found (???)", "warn", t);
                 chill(t);
             }
             orz2(xhr);
         }
         var orz2 = function (xhr) {
             apop(st.busy.upload, upt);
-            apop(t.postlist, npart);
+            for (var a = pcar; a <= pcdr; a++)
+                apop(t.postlist, a);
             if (!t.postlist.length) {
                 t.t_uploaded = Date.now();
                 pvis.seth(t.n, 1, 'verifying');
@@ -2601,28 +2635,39 @@ function up2k_init(subtle) {
                 btot = Math.floor(st.bytes.total / 1024 / 1024);
 
             xhr.upload.onprogress = function (xev) {
-                var nb = xev.loaded;
-                st.bytes.inflight += nb - xhr.bsent;
+                var nb = xev.loaded,
+                    db = nb - xhr.bsent;
+
+                if (!db)
+                    return;
+
+                st.bytes.inflight += db;
                 xhr.bsent = nb;
-                pvis.prog(t, npart, nb);
+                xhr.timeout = 64000 + Date.now() - xhr.t0;
+                pvis.prog(t, pcar, nb);
             };
             xhr.onload = function (xev) {
                 try { orz(xhr); } catch (ex) { vis_exh(ex + '', 'up2k.js', '', '', ex); }
             };
-            xhr.onerror = function (xev) {
+            xhr.onerror = xhr.ontimeout = function (xev) {
                 if (crashed)
                     return;
 
                 st.bytes.inflight -= (xhr.bsent || 0);
 
                 if (!toast.visible)
-                    toast.warn(9.98, L.u_cuerr.format(npart, Math.ceil(t.size / chunksize), t.name), t);
+                    toast.warn(9.98, L.u_cuerr.format(snpart, Math.ceil(t.size / chunksize), t.name), t);
 
+                t.nojoin = t.nojoin || t.postlist.length;  // maybe rproxy postsize limit
                 console.log('chunkpit onerror,', ++tries, t.name, t);
                 orz2(xhr);
             };
+            var chashes = [];
+            for (var a = pcar; a <= pcdr; a++)
+                chashes.push(t.hash[a]);
+
             xhr.open('POST', t.purl, true);
-            xhr.setRequestHeader("X-Up2k-Hash", t.hash[npart]);
+            xhr.setRequestHeader("X-Up2k-Hash", chashes.join(","));
             xhr.setRequestHeader("X-Up2k-Wark", t.wark);
             xhr.setRequestHeader("X-Up2k-Stat", "{0}/{1}/{2}/{3} {4}/{5} {6}".format(
                 pvis.ctr.ok, pvis.ctr.ng, pvis.ctr.bz, pvis.ctr.q, btot, btot - bfin,
@@ -2632,6 +2677,8 @@ function up2k_init(subtle) {
                 xhr.overrideMimeType('Content-Type', 'application/octet-stream');
 
             xhr.bsent = 0;
+            xhr.t0 = Date.now();
+            xhr.timeout = 42000;
             xhr.responseType = 'text';
             xhr.send(t.fobj.slice(car, cdr));
         }
@@ -2732,11 +2779,32 @@ function up2k_init(subtle) {
         if (parallel_uploads > 16)
             parallel_uploads = 16;
 
-        if (parallel_uploads > 7)
+        if (parallel_uploads > 6)
             toast.warn(10, L.u_maxconn);
+        else if (toast.txt == L.u_maxconn)
+            toast.hide();
 
         obj.value = parallel_uploads;
         bumpthread({ "target": 1 });
+    }
+
+    var read_u2sz = function () {
+        var el = ebi('u2szg'), n = parseInt(el.value), dv = u2sz.split(',');
+        stitch_tgt = n = (
+            isNaN(n) ? dv[1] :
+            n < dv[0] ? dv[0] :
+            n > dv[2] ? dv[2] : n
+        );
+        if (n == dv[1]) sdrop('u2sz'); else swrite('u2sz', n);
+        if (el.value != n) el.value = n;
+    };
+    ebi('u2szg').addEventListener('blur', read_u2sz);
+    ebi('u2szg').onkeydown = function (e) {
+        if (anymod(e)) return;
+        var n = e.code == 'ArrowUp' ? 1 : e.code == 'ArrowDown' ? -1 : 0;
+        if (!n) return;
+        this.value = parseInt(this.value) + n;
+        read_u2sz();
     }
 
     function tgl_fsearch() {
